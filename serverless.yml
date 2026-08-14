@@ -1,0 +1,32 @@
+service: iot-simulator
+provider:
+  name: aws
+  runtime: python3.12
+  region: ${file(secrets.json):AWS_REGION}  # Change to your preferred AWS region
+  deploymentBucket:
+    name: ${file(secrets.json):DEPLOYMENT_BUCKET}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - iot:Publish
+          Resource:
+            - "arn:aws:iot:${aws:region}:${aws:accountId}:topic/$aws/things/*/shadow/update"
+            - "arn:aws:iot:${aws:region}:${aws:accountId}:topic/devices/*/telemetry"
+
+functions:
+  iam-based:
+    handler: handler.lambda_handler  #python file.function name
+    timeout: 10
+    events:
+      # Trigger 1: Run whenever a device shadow delta occurs
+      - iot:
+          name: "DeviceShadowDeltaRule"
+          sql: "SELECT *, topic(3) AS thing_name FROM '$aws/things/+/shadow/update/delta'"
+      
+      # Trigger 2: Run every 5 minutes for a specific virtual device
+      #- schedule:
+      #    rate: rate(30 minutes)
+      #    input:
+      #      thing_name: "MyVirtualDevice"
