@@ -1,0 +1,22 @@
+# === Private Configuration Data ===
+secrets.json
+
+# === Serverless Framework Artifacts ===
+.serverless/
+.serverless_plugins/
+
+# === Python Cache and Virtual Environments ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# === OS/IDE Specific Files ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
