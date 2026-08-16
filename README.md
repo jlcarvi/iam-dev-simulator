@@ -80,3 +80,4 @@ serverless deploy
 1. Go to the **AWS IoT Core Console** and register an anchor element named `MyVirtualDevice`.
 2. Update its shadow **Desired** property block state manually (`"state": {"desired": {"status": "ACTIVE"}}`).
 3. Check **CloudWatch Logs** to see the Lambda execute instantly in `shadow_sync` mode and reply with its `reported` state back to the device dashboard loop.
+
