@@ -1,8 +1,9 @@
 import json
 import logging
 import random
+from typing import Any
+
 import boto3
-from botocore.exceptions import ClientError
 
 # SETUP LOGGING
 logger = logging.getLogger()
@@ -32,21 +33,32 @@ def publish_shadow_update(thing_name: str, reported_state: dict) -> None:
         raise e
 
 
-def publish_device_telemetry(thing_name: str) -> None:
-    """Generates fake sensor metrics and sends them to a telemetry data stream."""
-    telemetry_topic = f"devices/{thing_name}/telemetry"
-    
-    fake_payload = {
+def vary_telemetry_value(value: Any) -> Any:
+    """Randomly increases or decreases float telemetry values, except binary states."""
+    if isinstance(value, float) and value not in (0.0, 1.0):
+        delta = round(random.uniform(0.1, 1.0), 1)
+        direction = random.choice([-1, 1])
+        return round(value + (delta * direction), 1)
+
+    return value
+
+
+def build_telemetry_payload(thing_name: str, telemetry: dict) -> dict:
+    """Builds a publishable telemetry payload from caller-provided metrics."""
+    return {
         "device_id": thing_name,
-        "room_temperature": round(random.uniform(-10.0, 15.5), 1),
-        "exterior_temperature": round(random.uniform(10.0, 45.0), 1)
-        #"battery_health": "good",
-        #"signal_strength_dbm": random.randint(-85, -50)
+        **{label: vary_telemetry_value(value) for label, value in telemetry.items()},
     }
+
+
+def publish_device_telemetry(thing_name: str, telemetry: dict) -> None:
+    """Sends caller-provided telemetry metrics to the device telemetry stream."""
+    telemetry_topic = f"devices/{thing_name}/telemetry"
+    payload = build_telemetry_payload(thing_name, telemetry)
     
     try:
         logger.info(f"[{thing_name}] Publishing sensor telemetry to stream: {telemetry_topic}")
-        iot_client.publish(topic=telemetry_topic, qos=0, payload=json.dumps(fake_payload))
+        iot_client.publish(topic=telemetry_topic, qos=0, payload=json.dumps(payload))
         logger.info(f"[{thing_name}] Telemetry broadcast complete.")
     except Exception as e:
         logger.error(f"[{thing_name}] Telemetry error: {str(e)}")
@@ -66,8 +78,13 @@ def lambda_handler(event, context):
     
     # CASE A: Triggered by EventBridge (Only thing_name was passed, no 'state' block)
     if not delta_state:
+        telemetry = event.get('telemetry')
+        if not isinstance(telemetry, dict):
+            logger.error("Missing or invalid required parameter: telemetry")
+            return {'statusCode': 400, 'body': json.dumps('Error: missing or invalid telemetry')}
+
         logger.info(f"[{thing_name}] Invoked by EventBridge. Executing Cron Telemetry Stream.")
-        publish_device_telemetry(thing_name)
+        publish_device_telemetry(thing_name, telemetry)
         return {
             'statusCode': 200,
             'body': json.dumps({'mode': 'telemetry_only', 'device': thing_name})

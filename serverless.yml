@@ -25,8 +25,45 @@ functions:
           name: "DeviceShadowDeltaRule"
           sql: "SELECT *, topic(3) AS thing_name FROM '$aws/things/+/shadow/update/delta'"
       
-      # Trigger 2: Run every 5 minutes for a specific virtual device
-      #- schedule:
-      #    rate: rate(30 minutes)
-      #    input:
-      #      thing_name: "MyVirtualDevice"
+resources:
+  Resources:
+    TelemetrySchedulerInvokeRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: scheduler.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: InvokeTelemetryLambda
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: lambda:InvokeFunction
+                  Resource:
+                    Fn::GetAtt:
+                      - IamDashbasedLambdaFunction
+                      - Arn
+
+    TelemetrySchedule:
+      Type: AWS::Scheduler::Schedule
+      Properties:
+        Name: ${self:service}-${sls:stage}-iam-based-telemetry
+        State: ENABLED
+        ScheduleExpression: rate(30 minutes)
+        FlexibleTimeWindow:
+          Mode: "OFF"
+        Target:
+          Arn:
+            Fn::GetAtt:
+              - IamDashbasedLambdaFunction
+              - Arn
+          RoleArn:
+            Fn::GetAtt:
+              - TelemetrySchedulerInvokeRole
+              - Arn
+          Input: '{"thing_name":"tb-freezer-001","telemetry":{"room_temperature":-5.0,"exterior_temperature":15.0}}'
