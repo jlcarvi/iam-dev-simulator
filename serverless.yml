@@ -25,8 +25,12 @@ functions:
           name: "DeviceShadowDeltaRule"
           sql: "SELECT *, topic(3) AS thing_name FROM '$aws/things/+/shadow/update/delta'"
       
-      # Trigger 2: Run every 5 minutes for a specific virtual device
-      #- schedule:
-      #    rate: rate(30 minutes)
-      #    input:
-      #      thing_name: "MyVirtualDevice"
+      #Trigger 2: Run every 5 minutes for a specific virtual device
+      - schedule:
+          rate: rate(30 minutes)
+          enabled: true
+          input:
+            thing_name: "tb-freezer-001"
+            telemetry:
+              room_temperature: -5.0
+              exterior_temperature: 15.0
